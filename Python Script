@@ -1,0 +1,72 @@
+import nmap
+import sys
+from datetime import datetime
+
+# Define the target IP address
+target_ip = "192.168.107.5"
+
+print("-" * 60)
+print(f"Initializing Nmap Scan via Python")
+print(f"Target: {target_ip}")
+print(f"Command: nmap -sC -sV -T4 {target_ip}")
+print(f"Time Started: {str(datetime.now())}")
+print("-" * 60)
+
+# Initialize the PortScanner object
+nm = nmap.PortScanner()
+
+try:
+    # Run the exact scan arguments against the target IP
+    # -sV: Service version detection
+    # -sC: Run default nmap scripts
+    # -T4: Aggressive timing template for speed
+    print("[*] Scanning... This may take a moment depending on open services.")
+    nm.scan(hosts=target_ip, arguments='-sC -sV -T4')
+
+    # Check if the host is up
+    if target_ip not in nm.all_hosts():
+        print(f"[-] Target {target_ip} appears to be down or unreachable.")
+        sys.exit()
+
+    # Iterate through protocols found (usually 'tcp')
+    for proto in nm[target_ip].all_protocols():
+        print(f"\nProtocol: {proto.upper()}")
+        print(f"{'PORT':<8}{'STATE':<10}{'SERVICE':<15}{'VERSION'}")
+        print("-" * 60)
+        
+        # Get list of scanned ports sorted numerically
+        ports = sorted(nm[target_ip][proto].keys())
+        
+        for port in ports:
+            port_info = nm[target_ip][proto][port]
+            state = port_info.get('state', 'unknown')
+            service = port_info.get('name', 'unknown')
+            
+            # Combine product and version information
+            product = port_info.get('product', '')
+            version = port_info.get('version', '')
+            extrainfo = port_info.get('extrainfo', '')
+            full_version = f"{product} {version} {extrainfo}".strip() or "Unknown Version"
+            
+            print(f"{port:<8}{state:<10}{service:<15}{full_version}")
+            
+            # If the -sC script returned any outputs, print them out neatly
+            if 'script' in port_info:
+                print("\n    [!] Script Outputs:")
+                for script_name, script_output in port_info['script'].items():
+                    print(f"    -> {script_name}:")
+                    # Indent script findings for scannability
+                    indented_output = "\n".join([f"       {line}" for line in script_output.split('\n')])
+                    print(indented_output)
+                print("-" * 60)
+
+except KeyboardInterrupt:
+    print("\n[-] Scan cancelled by user.")
+    sys.exit()
+except Exception as e:
+    print(f"\n[-] An error occurred: {e}")
+    sys.exit()
+
+print("\n" + "-" * 60)
+print("Scan Complete.")
+print("-" * 60)
